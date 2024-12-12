@@ -1,8 +1,8 @@
-# lego-os 见证组件化的力量
+<div align="center">
+    <h1>lego-os 见证组件化的力量</h1>
+    <i>探索使用Rust语言、并以组件化的开发方式构建OS</i><br/>
+</div>
 
-<p align="center">
-    探索使用Rust语言、并以组件化的开发方式构建OS<br/>
-</p>
 
 ## 简介
 
