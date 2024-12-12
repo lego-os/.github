@@ -4,7 +4,7 @@
 
 ## implement lego_mem (内存管理)
 
-- **[buddy_skip_alloc](https://github.com/QIUZHILEI/buddy_skip_alloc)**：基于调表的页式物理内存分配器
+- **[buddy_skip_alloc](https://github.com/QIUZHILEI/buddy_skip_alloc)**：基于跳表的页式物理内存分配器
 
 ## implement lego_fs (文件管理)
 
