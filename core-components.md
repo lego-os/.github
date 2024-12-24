@@ -9,6 +9,3 @@
 - **[lego_process](https://github.com/lego-os/lego_process)**:进程管理接口
 - **[lego_timer](https://github.com/lego-os/lego_timer)**:计时器、定时器接口
 - [lego_virt](https://github.com/lego-os/lego_virt):虚拟化接口
-
-
-

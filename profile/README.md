@@ -120,7 +120,7 @@ flowchart LR
 
 ## 文档说明
 
-快速体验组件化的力量：[quick-start](../quick_start.md)
+在VisionFive 2上快速体验组件化的力量：[vf2_firmware_quick_start](../vf2_firmware_quick_start.md)
 
 核心组件说明：[core-components](../core-components.md)
 
