@@ -4,7 +4,7 @@
 
 预先准备环境：
 
-- Visionfive2 主板
+- Visionfive2 开发板
 - 一台Linux主机或虚拟机（能够读写SD卡）
 - riscv工具链（unknow-none）
 - Rust语言环境
@@ -31,26 +31,26 @@ VisionFive2 的启动流程为 `BootROM > SPL + Open SBI + UBoot > Kernel + File
 
 第二步是根据选择的启动模式将spl加载至SRAM中执行，spl是Uboot的一部分，它主要的任务是调整一些板子的设置并加载Uboot到主存；第三步：spl加载完Uboot并跳转到Uboot的入口地址执行，Uboot提供了很多命令，可以用来查看一些板子的配置信息、设置环境变量、加载内核到内存…… 最重要的功能就是向内核传递一些参数并将内核加载至内存，最终跳转到内核执行。
 
-**如果想加载自定义的操作系统内核，使用Uboot可能不是那么容易。因此我们重写了启动引导第三步的固件，并把它命名为`vf2_firmware`。然后，需要将新的固件程序刷写到设备中。**
+**如果想加载自定义的操作系统内核，使用Uboot可能不是那么容易，因此我们重写了启动引导第三步的固件，并把它命名为`vf2_firmware`，将这个固件刷写到设备中，就可以实现自由灵活的加载自定义的内核了。**
 
 在刷写程序之前，有个问题需要先考虑一下：板载BootROM固件根据启动模式选择SPL的加载位置有三种，QSPI Flash、SD、NVME、eMMC（Uart用于恢复SPL和Uboot），spl和Uboot固件被放置在一个设备的不同分区中，我们需要考虑这三种设备中，哪种设备便于刷入程序，并且最好不要随意刷写焊接在板子上的硬件，因为硬件损坏不易维修。QSPI Flash和eMMC（不自带）被焊接在板子上，出现硬件问题不易解决，而NVME硬盘成本稍高，不宜反复插拔，而SD卡容易插拔、出问题更换的成本低。
 
-所以本实验使用SD卡进行，**你需要按照上面的图将启动模式调节为SDIO模式**。那么话不多说，我们开始吧！
+所以本实验使用SD卡进行，**你需要按照上面的图将启动模式调节为SDIO模式**，那么话不多说，我们开始吧！
 
 ## 开始制作自定义的固件
 
-本机环境为x86_64架构，Ubuntu 24.04。首先我们来安装一些必要的环境。
+本机环境为x86_64架构，Ubuntu 24.04，首先我们来安装一些必要的环境。
 
 ### 1. Rust 语言环境
 
-安装Rust语言环境，可能会由于网络问题，比较缓慢，我们可以配置国内镜像，解决这个问题，在您的终端中输入：
+安装Rust语言环境，可能会由于网络问题比较缓慢，我们可以配置国内镜像解决这个问题，在您的终端中输入：
 
 ```shell
 $ export RUSTUP_DIST_SERVER=https://mirrors.ustc.edu.cn/rust-static
 $ export RUSTUP_UPDATE_ROOT=https://mirrors.ustc.edu.cn/rust-static/rustup
 ```
 
-当然你也可以将这两个环境变量写入环境变量配置文件，使其永久生效。（比如将这条命令追加到~/.bashrc，然后`source ~/.bashrc` 使环境变量立即生效）。
+你也可以选择将这两个环境变量写入环境变量配置文件，使其永久生效。（比如将这条命令追加到~/.bashrc，然后`source ~/.bashrc` 使环境变量立即生效）。
 
 接下来，就可以安装Rust语言环境了，执行
 
@@ -98,7 +98,7 @@ This is free software; see the source for copying conditions.  There is NO
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 ```
 
-注意，我们要安装的是unknown-elf，而不是linux-gnu。其他发行版安装方法可能不一样。如果您不知道其他发行版该如何使用包管理安装，可以手动编译安装：
+注意，我们要安装的是unknown-elf，而不是linux-gnu，其他发行版安装方法可能不一样，如果您不知道其他发行版该如何使用包管理安装，可以手动编译安装：
 
 ```shell
 $ git clone https://github.com/riscv/riscv-gnu-toolchain
@@ -134,7 +134,7 @@ $ cargo fetch
 $ ./gen_img.sh
 ```
 
-执行完上述命令后，会在`vf2_firmware`目录下生成一个`fw.img`的文件，在tools目录下，已经准备好了spl固件`u-boot-spl.bin.normal.out`和一个用于测试的内核`LEGO.OS`我们继续将`u-boot-spl.bin.normal.out`和`fw.img`分别写入SD卡的第一个和第二个分区，在`vf2_firmware`目录下执行：
+执行完上述命令后，会在`vf2_firmware`目录下生成一个`fw.img`的文件，在tools目录下，已经准备好了spl固件`u-boot-spl.bin.normal.out`和一个用于测试的内核`LEGO.OS`我们继续将`u-boot-spl.bin.normal.out`和`fw.img`分别写入SD卡的第一个和第二个分区，将LEGO.OS拷贝到第三个分区，在`vf2_firmware`目录下执行：
 
 ```shell
 $ sudo dd if=./tools/u-boot-spl.bin.normal.out of=/dev/sdX1
@@ -172,7 +172,7 @@ $ sudo umount /mnt
 
 ## vf2_firmware固件
 
-上文，我们已经叙述了Visionfive2 使用Uboot作为固件的启动流程。如果我们想自己写一个OS内核，那么使用Uboot固件可能很难做到灵活的加载内核，因此，我们重新使用Rust语言编写了固件。
+上文，我们已经叙述了Visionfive2 使用Uboot作为固件的启动流程，如果我们想自己写一个OS内核，那么使用Uboot固件可能很难做到灵活的加载内核，因此，我们重新使用Rust语言编写了固件。
 
 上面的实验中，给出的spl固件已经被我们修改，原来spl将Uboot加载到内存始址0x4000000，修改后的spl将`vf2_firmware`加载到0xC0000000（0x40000000+2GB），这样做简化了`vf2_firmware`将自定义内核加载到0x40000000的操作。
 
@@ -183,7 +183,7 @@ $ sudo umount /mnt
 - 只做分配而不做回收的内存分配器
 - 简易的只读的FAT文件系统
 
-uart驱动作为交互的输入输出媒介，FAT文件系统借助SDIO驱动读取SD卡EFI分区数据，由于固件功能简易，仅提供加载内核的功能，所以内存分配没有必要设计的太繁琐。
+uart驱动作为交互的输入输出媒介，FAT文件系统借助SDIO驱动读取SD卡EFI分区数据。
 
 `vf2_firmware`从SD的EFI分区中加载内核，目前锁定了可以加载的内核名称为`LEGO.OS`，将来会丰富固件功能，使其提供更多的功能并实现灵活的内核加载方式。
 
