@@ -1,6 +1,6 @@
 # 快速体验
 
-本文介绍如何使用我们开发的`vf2_firmware`固件代替uboot固件，在Visionfive2平台上运行。
+本文介绍如何使用我们开发的`vf2_bootloader`引导程序代替Uboot，在Visionfive 2平台上运行。
 
 预先准备环境：
 
@@ -31,13 +31,13 @@ VisionFive2 的启动流程为 `BootROM > SPL + Open SBI + UBoot > Kernel + File
 
 第二步是根据选择的启动模式将spl加载至SRAM中执行，spl是Uboot的一部分，它主要的任务是调整一些板子的设置并加载Uboot到主存；第三步：spl加载完Uboot并跳转到Uboot的入口地址执行，Uboot提供了很多命令，可以用来查看一些板子的配置信息、设置环境变量、加载内核到内存…… 最重要的功能就是向内核传递一些参数并将内核加载至内存，最终跳转到内核执行。
 
-**如果想加载自定义的操作系统内核，使用Uboot可能不是那么容易，因此我们重写了启动引导第三步的固件，并把它命名为`vf2_firmware`，将这个固件刷写到设备中，就可以实现自由灵活的加载自定义的内核了。**
+**如果想加载自定义的操作系统内核，使用Uboot可能不是那么容易，因此我们重写了启动引导第三步的程序，并把它命名为`vf2_bootloader`，将这个程序刷写到设备中，就可以实现自由灵活的加载自定义的内核了。**
 
-在刷写程序之前，有个问题需要先考虑一下：板载BootROM固件根据启动模式选择SPL的加载位置有三种，QSPI Flash、SD、NVME、eMMC（Uart用于恢复SPL和Uboot），spl和Uboot固件被放置在一个设备的不同分区中，我们需要考虑这三种设备中，哪种设备便于刷入程序，并且最好不要随意刷写焊接在板子上的硬件，因为硬件损坏不易维修。QSPI Flash和eMMC（不自带）被焊接在板子上，出现硬件问题不易解决，而NVME硬盘成本稍高，不宜反复插拔，而SD卡容易插拔、出问题更换的成本低。
+在刷写程序之前，有个问题需要先考虑一下：板载BootROM固件根据启动模式选择SPL的加载位置有三种，QSPI Flash、SD、NVME、eMMC（Uart用于恢复SPL和Uboot），spl和Uboot被放置在一个设备的不同分区中，我们需要考虑这三种设备中，哪种设备便于刷入程序，并且最好不要随意刷写焊接在板子上的硬件，因为硬件损坏不易维修。QSPI Flash和eMMC（不自带）被焊接在板子上，出现硬件问题不易解决，而NVME硬盘成本稍高，不宜反复插拔，而SD卡容易插拔、出问题更换的成本低。
 
-所以本实验使用SD卡进行，**你需要按照上面的图将启动模式调节为SDIO模式**，那么话不多说，我们开始吧！
+所以本实验使用SD卡进行，**你需要按照上面的图将启动模式调整为SDIO模式**，那么话不多说，我们开始吧！
 
-## 开始制作自定义的固件
+## 开始制作自定义的引导程序
 
 本机环境为x86_64架构，Ubuntu 24.04，首先我们来安装一些必要的环境。
 
@@ -110,7 +110,7 @@ $ make -j$(nproc)
 
 注意--prefix参数为工具链安装目录，可以自行替换，github仓库克隆时间和编译时间可能较长，需要等待编译完成后，配置好工具链环境变量。
 
-### 3. 准备SD卡并写入固件
+### 3. 准备SD卡并写入引导程序
 
 ***Note：下面步骤中，对SD卡分区或向SD卡写入数据，要注意将/dev/sdX 替换为自己的设备，可以通过`fdisk -l`命令查看自己的SD卡设备名***
 
@@ -125,16 +125,16 @@ $ sudo sgdisk -g --clear --set-alignment=1 \
 $ sudo mkfs.fat -F 32 /dev/sdX3
 ```
 
-如果mkfs.fat命令未找到，需要安装dosfstools。接下来，我们开始制作固件，并将固件写入SD卡的分区中：
+如果mkfs.fat命令未找到，需要安装dosfstools。接下来，我们开始制作引导程序，并将程序写入SD卡的分区中：
 
 ```shell
-$ git clone https://github.com/QIUZHILEI/`vf2_firmware`.git
-$ cd `vf2_firmware`
+$ git clone https://github.com/QIUZHILEI/vf2_bootloader.git
+$ cd vf2_bootloader
 $ cargo fetch
 $ ./gen_img.sh
 ```
 
-执行完上述命令后，会在`vf2_firmware`目录下生成一个`fw.img`的文件，在tools目录下，已经准备好了spl固件`u-boot-spl.bin.normal.out`和一个用于测试的内核`LEGO.OS`我们继续将`u-boot-spl.bin.normal.out`和`fw.img`分别写入SD卡的第一个和第二个分区，将LEGO.OS拷贝到第三个分区，在`vf2_firmware`目录下执行：
+执行完上述命令后，会在`vf2_bootloader`目录下生成一个`fw.img`的文件，在tools目录下，已经准备好了spl `u-boot-spl.bin.normal.out` 和一个用于测试的内核 `LEGO.OS` ，我们继续将 `u-boot-spl.bin.normal.out` 和 `fw.img` 分别写入SD卡的第一个和第二个分区，将LEGO.OS拷贝到第三个分区，在`vf2_bootloader`目录下执行：
 
 ```shell
 $ sudo dd if=./tools/u-boot-spl.bin.normal.out of=/dev/sdX1
@@ -168,29 +168,16 @@ $ sudo umount /mnt
 
 完成上述步骤后，将SD卡插入visionfive2的SD卡插槽，然后接入电源，我们就可以在串口监视器上看到输出：
 
-![`vf2_firmware`_uart_out](assets/vf2_firmware_uart_out.png)
+![vf2_bootloader_uart_out](assets/vf2_bootloader_uart_out.png)
 
-## vf2_firmware固件
-
-上文，我们已经叙述了Visionfive2 使用Uboot作为固件的启动流程，如果我们想自己写一个OS内核，那么使用Uboot固件可能很难做到灵活的加载内核，因此，我们重新使用Rust语言编写了固件。
-
-上面的实验中，给出的spl固件已经被我们修改，原来spl将Uboot加载到内存始址0x4000000，修改后的spl将`vf2_firmware`加载到0xC0000000（0x40000000+2GB），这样做简化了`vf2_firmware`将自定义内核加载到0x40000000的操作。
-
-相对于Uboot，`vf2_firmware`仅提供了一些简易的组件，它包括：
-
-- dw uart 8250驱动程序
-- dw移动存储Host，SDIO驱动
-- 只做分配而不做回收的内存分配器
-- 简易的只读的FAT文件系统
-
-uart驱动作为交互的输入输出媒介，FAT文件系统借助SDIO驱动读取SD卡EFI分区数据。
-
-`vf2_firmware`从SD的EFI分区中加载内核，目前锁定了可以加载的内核名称为`LEGO.OS`，将来会丰富固件功能，使其提供更多的功能并实现灵活的内核加载方式。
+------
 
 ## 参考资料
 
+[vf2_bootloader](https://github.com/QIUZHILEI/vf2_bootloader)
+
 [VisionFive 2 启动流程](https://doc.rvspace.org/VisionFive2/Developing_and_Porting_Guide/JH7110_Boot_UG/JH7110_SDK/boot_flow.html)
 
- [VisionFive2 - Waveshare Wiki](https://www.waveshare.net/wiki/VisionFive2) 
+[VisionFive2 - Waveshare Wiki](https://www.waveshare.net/wiki/VisionFive2) 
 
 [riscv-collab/riscv-gnu-toolchain: GNU toolchain for RISC-V, including GCC](https://github.com/riscv-collab/riscv-gnu-toolchain)
